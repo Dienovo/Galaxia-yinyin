@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxia Andrómeda de Amor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #020005;
+            color: #ffffff;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(10, 6, 24, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(236, 72, 153, 0.7);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .glass-button:active {
+            transform: translateY(0);
+        }
+
+        .glow-title {
+            text-shadow: 0 0 12px rgba(236, 72, 153, 0.9),
+                         0 0 25px rgba(168, 85, 247, 0.7),
+                         0 0 40px rgba(59, 130, 246, 0.5);
+        }
+
+        .nebula-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.15), transparent 75%),
+                        radial-gradient(circle at 20% 30%, rgba(236, 72, 153, 0.1), transparent 55%),
+                        radial-gradient(circle at 80% 70%, rgba(6, 182, 212, 0.1), transparent 55%);
+            z-index: 1;
+        }
+
+        canvas {
+            outline: none;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative overflow-hidden flex flex-col justify-between">
+
+    <div class="nebula-bg"></div>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- UI OVERLAY: SOLO MENSAJE DESTACADO Y MÚSICA CÓSMICA -->
+    <main class="relative z-10 pointer-events-none w-full h-full flex flex-col justify-end p-6 md:p-8">
+        
+        <div class="w-full flex flex-col sm:flex-row items-center justify-between gap-4">
+            <!-- Widget de Mensaje Destacado -->
+            <div class="pointer-events-auto flex items-center gap-3 glass-panel px-5 py-3.5 rounded-2xl max-w-md border border-pink-500/30 shadow-2xl">
+                <div class="w-8 h-8 rounded-xl bg-pink-500/20 flex items-center justify-center text-pink-400 border border-pink-500/40 shrink-0">
+                    <i class="fa-solid fa-quote-left text-sm"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] uppercase tracking-wider text-cyan-300 font-semibold font-space">Mensaje en el Cosmos</span>
+                    <p id="featured-quote" class="text-xs sm:text-sm text-pink-100 italic transition-opacity duration-300 font-medium">
+                        "Cargando cosmos..."
+                    </p>
+                </div>
+            </div>
+
+            <!-- Botón de Música Cósmica -->
+            <div class="pointer-events-auto">
+                <button id="btn-toggle-audio" class="glass-button px-5 py-3 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 text-white border border-purple-500/40 shadow-lg">
+                    <i class="fa-solid fa-music text-purple-400" id="audio-icon"></i>
+                    <span id="audio-text">Música Cósmica</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="toast" class="fixed top-20 right-5 z-50 glass-panel px-4 py-3 rounded-2xl border border-pink-500/60 flex items-center gap-3 transform translate-x-full transition-transform duration-300">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toast-msg" class="text-xs text-white font-medium">¡Frase añadida con éxito!</span>
+    </div>
+
+    <!-- JAVASCRIPT CODE -->
+    <script>
+        // Lista completa de frases románticas/poéticas del usuario
+        const allPhrases = [
+            "Eres mi casualidad más bonita ✨",
+            "Mi lugar favorito es a tu lado 💖",
+            "Contigo todo es mejor 🌌",
+            "Te amo infinito y más allá 🚀",
+            "Eres el centro de mi universo 💫",
+            "Tu sonrisa ilumina mis días ☀️",
+            "Amarte es fácil y hermoso 🌹",
+            "Dueña de mi corazón 💓",
+            "Eres la estrella más brillante de mi cielo nocturno 🌠",
+            "Contigo el tiempo se detiene y el espacio cobra sentido 🪐",
+            "Eres el sol que guía órbita entera ☀️✨",
+            "En este vasto universo, te volvería a elegir en otra vida 🌌💫",
+            "Eres mi persona favorita en todo el mundo mundial 🌍",
+            "Tus abrazos son mi refugio seguro y mi paz 🫂",
+            "Cada segundo a tu lado es un regalo maravilloso 🎁",
+            "Tu risa es la melodía más hermosa que mis oídos pueden escuchar 🎶",
+            "Eres el sueño del que nunca quiero despertar ☁️💤",
+            "Tienes la llave de mi corazón y de mi alma 🗝️❤️",
+            "Contigo descubrí lo que significa amar de verdad 🥰",
+            "No hay distancia ni galaxia que apague lo que siento por ti 🔥",
+            "Eres el latido que le da ritmo a mi vida 💓",
+            "Me haces querer ser la mejor versión de mí todos los días 🌱",
+            "Contigo encontré el hogar que siempre busqué 🏡❤️",
+            "Eres mi paz en medio de cualquier tormenta ⛈️🌤️",
+            "Daría la vuelta al mundo solo para verte sonreír 🗺️✨",
+            "Tu amor es el motor que mueve mi existencia ⚙️💖",
+            "Eres arte puro caminando por este mundo 🎨🌹",
+            "Tus ojos son el universo en el que me pierdo feliz 👁️🌌",
+            "Eres el main() de mi vida, sin ti no hay programa 💻❤️",
+            "Eres mi Ctrl + Z favorito para borrar los malos días ⌨️✨",
+            "Te amo más que al código limpio y sin bugs 🤓💻",
+            "Entre 8 mil millones de personas, mi algoritmo te eligió a ti 🤖💖",
+            "Mi procesador se acelera cada vez que te veo 🧠💓",
+            "Eres mi actualización favorita, mejoraste todo mi sistema 🚀🔄",
+            "Te amo hoy, mañana y siempre ♾️",
+            "Juntos hasta viejitos 👵👴",
+            "Mi sol, mi luna y mis estrellas 🌙☀️",
+            "Eres magia pura ✨",
+            "Mi 11:11 hecho realidad 🍀"
+        ];
+
+        // Three.js variables
+        let scene, camera, renderer, controls;
+        let galaxyGroup, bubbleGroup, backgroundStars;
+        let isAutoRotating = true;
+        const phraseObjects = [];
+
+        // Audio sintetizado
+        let audioCtx = null;
+        let isAudioPlaying = false;
+        let synthOscillators = [];
+
+        // Parámetros del modelo Andrómeda (M31)
+        const andromedaParams = {
+            particlesCount: 55000,
+            radius: 75,
+            ellipseRatio: 0.45,
+            branches: 2,
+            spin: 3.5,
+            randomness: 0.45,
+            power: 2.8,
+            coreRadius: 10,
+            bubbleRadius: 95
+        };
+
+        window.onload = function() {
+            initThreeJS();
+            createSpaceBackground();
+            createAndromedaGalaxy();
+            createSphereBubblePhrases();
+            setupEventListeners();
+            animate();
+            cycleFeaturedQuote();
+        };
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x020005, 0.0018);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 70, 130);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.35;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.04;
+            controls.maxDistance = 250;
+            controls.minDistance = 20;
+
+            galaxyGroup = new THREE.Group();
+            bubbleGroup = new THREE.Group();
+            
+            galaxyGroup.rotation.x = Math.PI * 0.18;
+            galaxyGroup.rotation.z = -Math.PI * 0.08;
+
+            scene.add(galaxyGroup);
+            scene.add(bubbleGroup);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            scene.add(ambientLight);
+        }
+
+        function createSpaceBackground() {
+            const bgGeometry = new THREE.BufferGeometry();
+            const bgCount = 4000;
+            const bgPositions = new Float32Array(bgCount * 3);
+            const bgColors = new Float32Array(bgCount * 3);
+
+            for (let i = 0; i < bgCount; i++) {
+                const r = 300 + Math.random() * 400;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos((Math.random() * 2) - 1);
+
+                bgPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                bgPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                bgPositions[i * 3 + 2] = r * Math.cos(phi);
+
+                const c = new THREE.Color().setHSL(0.6 + Math.random() * 0.2, 0.6, 0.7 + Math.random() * 0.3);
+                bgColors[i * 3] = c.r;
+                bgColors[i * 3 + 1] = c.g;
+                bgColors[i * 3 + 2] = c.b;
+            }
+
+            bgGeometry.setAttribute('position', new THREE.BufferAttribute(bgPositions, 3));
+            bgGeometry.setAttribute('color', new THREE.BufferAttribute(bgColors, 3));
+
+            const bgMaterial = new THREE.PointsMaterial({
+                size: 1.2,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            backgroundStars = new THREE.Points(bgGeometry, bgMaterial);
+            scene.add(backgroundStars);
+        }
+
+        function createAndromedaGalaxy() {
+            const count = andromedaParams.particlesCount;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            const colorCore = new THREE.Color('#fff7d6');
+            const colorMid = new THREE.Color('#e879f9');
+            const colorArmInner = new THREE.Color('#38bdf8');
+            const colorArmOuter = new THREE.Color('#818cf8');
+
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                
+                const isCore = Math.random() < 0.25;
+                let radius, spinAngle, branchAngle, x, y, z;
+
+                if (isCore) {
+                    radius = Math.pow(Math.random(), 2) * andromedaParams.coreRadius;
+                    branchAngle = Math.random() * Math.PI * 2;
+                    spinAngle = 0;
+                    
+                    x = Math.cos(branchAngle) * radius;
+                    z = Math.sin(branchAngle) * radius * andromedaParams.ellipseRatio;
+                    y = (Math.random() - 0.5) * (andromedaParams.coreRadius - radius * 0.5);
+                } else {
+                    radius = andromedaParams.coreRadius + Math.pow(Math.random(), 1.4) * (andromedaParams.radius - andromedaParams.coreRadius);
+                    spinAngle = radius * andromedaParams.spin * 0.04;
+                    branchAngle = ((i % andromedaParams.branches) / andromedaParams.branches) * Math.PI * 2;
+
+                    const randomX = Math.pow(Math.random(), andromedaParams.power) * (Math.random() < 0.5 ? 1 : -1) * andromedaParams.randomness * (radius * 0.25);
+                    const randomY = Math.pow(Math.random(), andromedaParams.power) * (Math.random() < 0.5 ? 1 : -1) * andromedaParams.randomness * (radius * 0.15);
+                    const randomZ = Math.pow(Math.random(), andromedaParams.power) * (Math.random() < 0.5 ? 1 : -1) * andromedaParams.randomness * (radius * 0.25);
+
+                    x = Math.cos(branchAngle + spinAngle) * radius + randomX;
+                    z = (Math.sin(branchAngle + spinAngle) * radius + randomZ) * andromedaParams.ellipseRatio;
+                    y = randomY;
+                }
+
+                positions[i3] = x;
+                positions[i3 + 1] = y;
+                positions[i3 + 2] = z;
+
+                let finalColor = new THREE.Color();
+                if (radius < andromedaParams.coreRadius) {
+                    finalColor.copy(colorCore).lerp(colorMid, radius / andromedaParams.coreRadius);
+                } else if (radius < andromedaParams.radius * 0.6) {
+                    const norm = (radius - andromedaParams.coreRadius) / (andromedaParams.radius * 0.6 - andromedaParams.coreRadius);
+                    finalColor.copy(colorMid).lerp(colorArmInner, norm);
+                } else {
+                    const norm = (radius - andromedaParams.radius * 0.6) / (andromedaParams.radius * 0.4);
+                    finalColor.copy(colorArmInner).lerp(colorArmOuter, norm);
+                }
+
+                colors[i3] = finalColor.r;
+                colors[i3 + 1] = finalColor.g;
+                colors[i3 + 2] = finalColor.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 16;
+            canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+            grad.addColorStop(0, 'rgba(255,255,255,1)');
+            grad.addColorStop(0.4, 'rgba(255,255,255,0.5)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 16, 16);
+            const texture = new THREE.CanvasTexture(canvas);
+
+            const material = new THREE.PointsMaterial({
+                size: 0.6,
+                sizeAttenuation: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexColors: true,
+                map: texture,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const points = new THREE.Points(geometry, material);
+            galaxyGroup.add(points);
+        }
+
+        function createPhraseSprite(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = 1024;
+            canvas.height = 128;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.font = 'Bold 36px "Outfit", "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            ctx.shadowColor = 'rgba(236, 72, 153, 0.95)';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.lineWidth = 1.2;
+            ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+
+            const spriteMaterial = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            });
+
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(38, 4.75, 1);
+            return sprite;
+        }
+
+        function createSphereBubblePhrases() {
+            while(bubbleGroup.children.length > 0) {
+                const child = bubbleGroup.children[0];
+                if (child.material) child.material.dispose();
+                bubbleGroup.remove(child);
+            }
+            phraseObjects.length = 0;
+
+            const total = allPhrases.length;
+            const radius = andromedaParams.bubbleRadius;
+
+            createBubbleParticlesGeometry(radius);
+
+            const phi = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < total; i++) {
+                const y = 1 - (i / (total - 1)) * 2;
+                const radiusAtY = Math.sqrt(1 - y * y);
+                const theta = phi * i;
+
+                const x = Math.cos(theta) * radiusAtY * radius;
+                const z = Math.sin(theta) * radiusAtY * radius;
+                const posY = y * radius;
+
+                const sprite = createPhraseSprite(allPhrases[i]);
+                sprite.position.set(x, posY, z);
+
+                phraseObjects.push({
+                    sprite: sprite,
+                    basePos: new THREE.Vector3(x, posY, z),
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.6 + Math.random() * 0.4
+                });
+
+                bubbleGroup.add(sprite);
+            }
+        }
+
+        function createBubbleParticlesGeometry(radius) {
+            const count = 1200;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            const c = new THREE.Color('#ec4899');
+
+            for (let i = 0; i < count; i++) {
+                const u = Math.random();
+                const v = Math.random();
+                const theta = u * 2.0 * Math.PI;
+                const phi = Math.acos(2.0 * v - 1.0);
+
+                positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = radius * Math.cos(phi);
+
+                colors[i * 3] = c.r;
+                colors[i * 3 + 1] = c.g;
+                colors[i * 3 + 2] = c.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.8,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.35,
+                blending: THREE.AdditiveBlending
+            });
+
+            const sphereMesh = new THREE.Points(geometry, material);
+            bubbleGroup.add(sphereMesh);
+        }
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            if (isAutoRotating) {
+                galaxyGroup.rotation.y = elapsedTime * 0.04;
+                bubbleGroup.rotation.y = -elapsedTime * 0.02;
+                bubbleGroup.rotation.x = Math.sin(elapsedTime * 0.01) * 0.1;
+            }
+
+            phraseObjects.forEach((item) => {
+                const floatOffset = Math.sin(elapsedTime * item.speed + item.phase) * 1.5;
+                const dir = item.basePos.clone().normalize();
+                item.sprite.position.copy(item.basePos).add(dir.multiplyScalar(floatOffset));
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function toggleCosmicAudio() {
+            const btnText = document.getElementById('audio-text');
+            const btnIcon = document.getElementById('audio-icon');
+
+            if (isAudioPlaying) {
+                synthOscillators.forEach(osc => osc.stop());
+                synthOscillators = [];
+                isAudioPlaying = false;
+                btnText.textContent = "Música Cósmica";
+                btnIcon.className = "fa-solid fa-music text-purple-400";
+            } else {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                const freqs = [108, 162, 216, 288];
+                synthOscillators = freqs.map(freq => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                    const lfo = audioCtx.createOscillator();
+                    lfo.frequency.setValueAtTime(0.15, audioCtx.currentTime);
+                    const lfoGain = audioCtx.createGain();
+                    lfoGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+
+                    lfo.connect(lfoGain);
+                    lfoGain.connect(gain.gain);
+
+                    gain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    lfo.start();
+                    return osc;
+                });
+
+                isAudioPlaying = true;
+                btnText.textContent = "Detener Música";
+                btnIcon.className = "fa-solid fa-volume-high text-pink-400";
+            }
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('btn-toggle-audio').addEventListener('click', toggleCosmicAudio);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function cycleFeaturedQuote() {
+            const featuredElem = document.getElementById('featured-quote');
+            setInterval(() => {
+                if (allPhrases.length > 0) {
+                    featuredElem.style.opacity = '0';
+                    setTimeout(() => {
+                        const idx = Math.floor(Math.random() * allPhrases.length);
+                        featuredElem.textContent = `"${allPhrases[idx]}"`;
+                        featuredElem.style.opacity = '1';
+                    }, 300);
+                }
+            }, 4500);
+        }
+    </script>
+</body>
+</html>
